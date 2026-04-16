@@ -1,9 +1,14 @@
 import { Router } from 'express';
-// Assuming chat controller has been set up with proper functionality
+import * as chatController from './chat.controller';
+import { requireAuth } from '../../middlewares/authMiddleware';
+
 const router = Router();
 
-// Routes for chats
-router.get('/', (req, res) => res.json({ message: 'List auth user chats here' }));
-router.get('/:id/messages', (req, res) => res.json({ message: 'List messages here' }));
+router.use(requireAuth);
+
+router.post('/', chatController.accessChat);
+router.get('/', chatController.fetchChats);
+router.post('/:id/messages', chatController.sendMessage);
+router.get('/:id/messages', chatController.fetchMessages);
 
 export default router;
