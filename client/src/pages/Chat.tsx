@@ -1,29 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '../components/chat/Sidebar';
 import ChatWindow from '../components/chat/ChatWindow';
+import { io } from 'socket.io-client';
+import { useAuthStore } from '../store/useAuthStore';
+import { useChatStore } from '../store/useChatStore';
+import { MessageCircle } from 'lucide-react';
+
+const ENDPOINT = 'http://localhost:5000';
 
 const Chat = () => {
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const { selectedChat, setSelectedChat, addMessage } = useChatStore();
+  const { token } = useAuthStore();
+  const socketRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (token && !socketRef.current) {
+      socketRef.current = io(ENDPOINT, {
+        auth: { token },
+      });
+
+      socketRef.current.on('message_received', (newMessageReceived: any) => {
+        addMessage(newMessageReceived);
+      });
+    }
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [token, addMessage]);
 
   return (
-    <div className="h-screen w-full bg-chat-bg flex overflow-hidden">
-      <div className="w-[30%] min-w-[300px] border-r border-gray-200 bg-white flex flex-col">
-        <Sidebar onSelectChat={setSelectedChat} selectedChat={selectedChat} />
+    <div className="h-screen w-full bg-white dark:bg-surface-950 flex overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-[340px] min-w-[300px] shrink-0">
+        <Sidebar />
       </div>
-      <div className="flex-1 flex flex-col bg-chat-bg">
+
+      {/* Chat Area */}
+      <div className="flex-1 flex flex-col relative">
         {selectedChat ? (
-          <ChatWindow chatId={selectedChat} />
+          <ChatWindow socket={socketRef.current} />
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-gray-100">
-            <div className="text-center">
-              <h1 className="text-3xl text-gray-500 font-light mt-4">WhatsApp Web</h1>
-              <p className="text-sm text-gray-400 mt-2">Send and receive messages without keeping your phone online.</p>
+
+
+          <div className="flex-1 flex items-center justify-center chat-pattern">
+            <div className="text-center animate-fade-in">
+              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-brand-500/10 to-brand-700/10 dark:from-brand-500/20 dark:to-brand-700/20 rounded-3xl flex items-center justify-center border border-brand-500/10 animate-float">
+                <MessageCircle size={36} className="text-brand-500 dark:text-brand-400" />
+              </div>
+              <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2">Welcome to Chat</h1>
+              <p className="text-sm text-zinc-500 dark:text-surface-400 max-w-sm">
+                Select a conversation from the sidebar or start a new one by searching for users.
+              </p>
             </div>
           </div>
         )}
       </div>
     </div>
   );
+
 };
 
 export default Chat;

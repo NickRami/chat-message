@@ -5,13 +5,22 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Chat from './pages/Chat';
 
+import { useThemeStore } from './store/useThemeStore';
+
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuthStore();
   return user ? <>{children}</> : <Navigate to="/login" />;
 };
 
 function App() {
+  const { theme, setTheme } = useThemeStore();
+
+  React.useEffect(() => {
+    setTheme(theme);
+  }, [theme, setTheme]);
+
   return (
+
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
