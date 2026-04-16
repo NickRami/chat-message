@@ -38,14 +38,15 @@ export const setupSocket = (server: HttpServer) => {
       console.log(`User ${socket.data.user.id} joined chat ${chatId}`);
     });
 
-    socket.on('send_message', (data: { chatId: string, content: string }) => {
-      // In a real implementation we would save this to DB first,
-      // then emit to the room.
-      socket.to(data.chatId).emit('receive_message', {
-        senderId: socket.data.user.id,
-        content: data.content,
-        chatId: data.chatId,
-        timestamp: new Date()
+    socket.on('new_message', (newMessage: any) => {
+      // The client hit the REST API -> DB saved it -> client emits it here
+      const chat = newMessage.chatId;
+      if (!chat.users) return console.log('chat.users not defined');
+
+      // We emit to everyone in the chat except the sender
+      chat.users.forEach((user: any) => {
+        if (user._id === newMessage.senderId._id) return;
+        socket.in(user._id).emit('message_received', newMessage);
       });
     });
 
