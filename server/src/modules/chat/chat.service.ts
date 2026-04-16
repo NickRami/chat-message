@@ -66,7 +66,7 @@ export const sendMessage = async (chatId: string, senderId: string, content: str
   message = await User.populate(message, {
     path: 'chatId.users',
     select: 'name email avatar'
-  });
+  }) as any;
 
   await Chat.findByIdAndUpdate(chatId, { latestMessage: message._id });
 
