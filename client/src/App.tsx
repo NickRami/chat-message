@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Chat from './pages/Chat';
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -14,6 +15,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route 
           path="/" 
           element={
