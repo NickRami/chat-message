@@ -26,7 +26,9 @@ export const loginUser = async (email: string, passwordRaw: string) => {
 };
 
 const generateTokens = async (userId: string) => {
+  // @ts-ignore
   const accessToken = jwt.sign({ id: userId }, env.JWT_ACCESS_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRES_IN });
+  // @ts-ignore
   const refreshTokenRaw = jwt.sign({ id: userId }, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRES_IN });
   
   const expiresAt = new Date();

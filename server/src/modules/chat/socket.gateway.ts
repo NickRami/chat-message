@@ -1,6 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
-import { env } from '../config/env';
+import { env } from '../../config/env';
 import jwt from 'jsonwebtoken';
 
 let io: Server;
