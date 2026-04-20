@@ -117,11 +117,14 @@ export const useChatStore = create<ChatStore>()(
             withCredentials: true
           });
           
+          const chatData = response.data;
           const currentChats = get().chats;
-          if (!currentChats.find((c: any) => c._id === response.data._id)) {
-            set({ chats: [response.data, ...currentChats] });
+          const chatExists = currentChats.some((c: any) => c._id.toString() === chatData._id.toString());
+          
+          if (!chatExists) {
+            set({ chats: [chatData, ...currentChats] });
           }
-          return response.data;
+          return chatData;
         } catch (error) {
           console.error('Failed to access chat', error);
           throw error;

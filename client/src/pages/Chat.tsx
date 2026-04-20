@@ -46,7 +46,7 @@ const Chat = () => {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col relative">
         {selectedChat ? (
-          <ChatWindow socket={socketRef.current} />
+          <ChatWindow key={selectedChat} socket={socketRef.current} />
         ) : (
 
 

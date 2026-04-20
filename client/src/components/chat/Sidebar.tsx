@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Search, LogOut, MessageSquarePlus, X, Loader2, Sun, Moon } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Search, LogOut, MessageSquarePlus, Sun, Moon, User as UserIcon, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useThemeStore } from '../../store/useThemeStore';
+import ContactsModal from './ContactsModal';
 
 /* ── Tooltip ─────────────────────────────────────────────────── */
 const Tooltip: React.FC<{ label: string; children: React.ReactNode; position?: 'bottom' | 'top' | 'left' }> = ({
@@ -56,48 +57,39 @@ const Sidebar: React.FC = () => {
   const { chats, fetchChats, accessChat, selectedChat, setSelectedChat } = useChatStore();
 
   const { theme, toggleTheme } = useThemeStore();
-
+  const [showContactsModal, setShowContactsModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chats' | 'contacts'>('chats');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchActive, setSearchActive] = useState(false);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
   useEffect(() => {
     fetchChats();
-  }, [fetchChats]);
+    fetchContacts();
+  }, [fetchChats, token]);
 
-  // Debounced search
-  useEffect(() => {
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
+  const fetchContacts = async () => {
+    try {
+      setLoadingContacts(true);
+      const res = await axios.get('http://localhost:5000/api/users/contacts', {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      setContacts(res.data);
+    } catch (err) {
+      console.error('Failed to fetch contacts', err);
+    } finally {
+      setLoadingContacts(false);
     }
-    setIsSearching(true);
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const res = await axios.get(`http://localhost:5000/api/users/search?q=${searchQuery}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true,
-        });
-        setSearchResults(res.data);
-      } catch (err) {
-        console.error('Search failed', err);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 400);
-    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
-  }, [searchQuery, token]);
+  };
 
   const handleSelectUser = async (userId: string) => {
     try {
       const chat = await accessChat(userId);
-      setSearchQuery('');
-      setSearchActive(false);
-      setSearchResults([]);
       setSelectedChat(chat._id);
+      setActiveTab('chats');
+      setSearchQuery('');
+      setShowContactsModal(false);
     } catch (err) {
       console.error('Error accessing chat', err);
     }
@@ -164,13 +156,10 @@ const Sidebar: React.FC = () => {
             onClick={toggleTheme}
           />
           <SidebarIconBtn
-            icon={<MessageSquarePlus size={18} className={clsx(
-              'transition-transform duration-200',
-              searchActive && 'rotate-12 text-brand-400'
-            )} />}
-            label={searchActive ? 'Cancel search' : 'New chat'}
-            onClick={() => { setSearchActive(!searchActive); setSearchQuery(''); setSearchResults([]); }}
-            active={searchActive}
+            icon={<MessageSquarePlus size={18} />}
+            label="New chat"
+            onClick={() => setShowContactsModal(true)}
+            active={showContactsModal}
           />
           {/* Separator */}
           <div className="w-px h-4 bg-zinc-200 dark:bg-white/[0.08] mx-0.5" />
@@ -183,110 +172,149 @@ const Sidebar: React.FC = () => {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex px-4 pt-4 gap-1">
+        <button
+          onClick={() => setActiveTab('chats')}
+          className={clsx(
+            "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+            activeTab === 'chats'
+              ? "bg-brand-500/10 text-brand-500 shadow-sm"
+              : "text-zinc-500 dark:text-surface-400 hover:bg-zinc-100 dark:hover:bg-white/[0.04]"
+          )}
+        >
+          CHATS
+        </button>
+        <button
+          onClick={() => setActiveTab('contacts')}
+          className={clsx(
+            "flex-1 py-2 text-xs font-bold rounded-lg transition-all",
+            activeTab === 'contacts'
+              ? "bg-brand-500/10 text-brand-500 shadow-sm"
+              : "text-zinc-500 dark:text-surface-400 hover:bg-zinc-100 dark:hover:bg-white/[0.04]"
+          )}
+        >
+          CONTACTS
+        </button>
+      </div>
+
+
       {/* Search Bar */}
       <div className="p-3 shrink-0">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
           <input 
             type="text"
-            placeholder={searchActive ? "Search users by name or email..." : "Search conversations..."}
+            placeholder="Search conversations..."
             className="w-full pl-9 pr-9 py-2.5 bg-zinc-100 dark:bg-surface-800/60 border border-zinc-200 dark:border-white/[0.06] rounded-xl text-sm text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-surface-500 focus:outline-none focus:ring-1 focus:ring-brand-500/30 focus:border-brand-500/30 transition-all duration-200"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => { if (!searchActive) setSearchActive(false); }}
           />
-          {searchQuery && (
-            <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-surface-400 hover:text-zinc-900 dark:hover:text-white">
-              <X size={16} />
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Search Results */}
-      {searchActive && searchQuery && (
-        <div className="px-2 pb-2 shrink-0 animate-fade-in">
-          <p className="text-[11px] uppercase tracking-wider text-surface-500 font-medium px-2 mb-2">
-            {isSearching ? 'Searching...' : `${searchResults.length} users found`}
-          </p>
-          {isSearching && (
-            <div className="flex justify-center py-4">
-              <Loader2 size={20} className="animate-spin text-brand-400" />
-            </div>
-          )}
-          {searchResults.map((u: any) => (
-            <div
-              key={u._id}
-              onClick={() => handleSelectUser(u._id)}
-              className="flex items-center px-3 py-2.5 cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/[0.04] rounded-lg transition-all duration-150 animate-slide-up"
-            >
-              <div className={`w-10 h-10 bg-gradient-to-br ${getAvatarColor(u.name)} rounded-xl flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md`}>
-                {getInitials(u.name)}
-              </div>
-              <div className="ml-3 overflow-hidden">
-                <p className="text-sm font-medium text-white truncate">{u.name}</p>
-                <p className="text-xs text-surface-400 truncate">{u.email}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Divider */}
-      {searchActive && searchQuery && (
-        <div className="mx-4 border-t border-white/[0.04]" />
-      )}
-
-      {/* Chat List */}
+      {/* List Area */}
       <div className="overflow-y-auto flex-1 px-2 py-1">
-        {chats.length === 0 && !searchActive && (
-          <div className="flex flex-col items-center justify-center h-full text-center px-8 opacity-50">
-            <MessageSquarePlus size={40} className="text-surface-500 mb-3" />
-            <p className="text-sm text-surface-400">No conversations yet</p>
-            <p className="text-xs text-surface-500 mt-1">Click the + icon to start chatting</p>
-          </div>
-        )}
-        {chats.map((chat: any) => {
-          const otherUser = getOtherUser(chat.users);
-          const isActive = selectedChat === chat._id;
-
-          return (
-            <div 
-              key={chat._id} 
-              onClick={() => setSelectedChat(chat._id)}
-              className={clsx(
-                "flex items-center px-3 py-3 cursor-pointer rounded-xl mb-0.5 transition-all duration-150",
-                isActive 
-                  ? "bg-brand-600/10 dark:bg-brand-600/15 border border-brand-500/20" 
-                  : "hover:bg-zinc-100 dark:hover:bg-white/[0.04] border border-transparent"
-              )}
-            >
-              <div className={`w-11 h-11 bg-gradient-to-br ${getAvatarColor(otherUser?.name || '')} rounded-xl flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md`}>
-                {getInitials(otherUser?.name || '')}
+        {activeTab === 'chats' ? (
+          chats.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12 opacity-50">
+              <div className="w-16 h-16 bg-zinc-100 dark:bg-surface-800 rounded-2xl flex items-center justify-center mb-4">
+                <MessageSquarePlus size={32} className="text-surface-500" />
               </div>
-              <div className="ml-3 flex-1 overflow-hidden">
-                <div className="flex justify-between items-center">
-                  <span className={clsx(
-                    "font-medium truncate text-sm",
-                    isActive ? "text-brand-600 dark:text-white" : "text-zinc-900 dark:text-surface-200"
-                  )}>
-                    {otherUser?.name}
-                  </span>
-                  <span className="text-[11px] text-surface-500 ml-2 shrink-0">
-                    {chat.latestMessage 
-                      ? new Date(chat.latestMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-                      : ''
-                    }
-                  </span>
-                </div>
-                <p className="text-xs text-surface-400 truncate mt-0.5">
-                  {chat.latestMessage ? chat.latestMessage.content : 'Start a conversation'}
-                </p>
-              </div>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-white">No conversations yet</p>
+              <p className="text-xs text-surface-500 mt-1">Click the + icon to start chatting with your contacts.</p>
             </div>
-          );
-        })}
+          ) : (
+            chats.filter((c: any) => {
+              const other = getOtherUser(c.users);
+              return other?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+            }).map((chat: any) => {
+              const otherUser = getOtherUser(chat.users);
+              const isActive = selectedChat === chat._id;
+              return (
+                <div 
+                  key={chat._id} 
+                  onClick={() => setSelectedChat(chat._id)}
+                  className={clsx(
+                    "flex items-center px-3 py-3 cursor-pointer rounded-xl mb-0.5 transition-all duration-150",
+                    isActive 
+                      ? "bg-brand-600/10 dark:bg-brand-600/15 border border-brand-500/20 shadow-sm shadow-brand-500/5" 
+                      : "hover:bg-zinc-100 dark:hover:bg-white/[0.04] border border-transparent"
+                  )}
+                >
+                  <div className={`w-11 h-11 bg-gradient-to-br ${getAvatarColor(otherUser?.name || '')} rounded-xl flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md`}>
+                    {getInitials(otherUser?.name || '')}
+                  </div>
+                  <div className="ml-3 flex-1 overflow-hidden">
+                    <div className="flex justify-between items-center">
+                      <span className={clsx(
+                        "font-medium truncate text-sm",
+                        isActive ? "text-brand-600 dark:text-white" : "text-zinc-900 dark:text-surface-200"
+                      )}>
+                        {otherUser?.name}
+                      </span>
+                      <span className="text-[11px] text-surface-500 ml-2 shrink-0">
+                        {chat.latestMessage 
+                          ? new Date(chat.latestMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                          : ''
+                        }
+                      </span>
+                    </div>
+                    <p className="text-xs text-surface-400 truncate mt-0.5">
+                      {chat.latestMessage ? chat.latestMessage.content : 'Start a conversation'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )
+        ) : (
+          /* Contacts Tab */
+          loadingContacts ? (
+            <div className="flex justify-center py-12">
+              <Loader2 size={24} className="animate-spin text-brand-500" />
+            </div>
+          ) : contacts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12 opacity-50">
+              <div className="w-16 h-16 bg-zinc-100 dark:bg-surface-800 rounded-2xl flex items-center justify-center mb-4">
+                <UserIcon size={32} className="text-surface-500" />
+              </div>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-white">Your contact list is empty</p>
+              <p className="text-xs text-surface-500 mt-1">Add people from the search to start chatting.</p>
+            </div>
+          ) : (
+            contacts.filter((c: any) => 
+              c.name.toLowerCase().includes(searchQuery.toLowerCase())
+            ).map((contact: any) => (
+              <div 
+                key={contact._id} 
+                onClick={() => handleSelectUser(contact._id)}
+                className="flex items-center px-3 py-3 cursor-pointer rounded-xl mb-0.5 hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition-all duration-150 border border-transparent"
+              >
+                <div className={`w-11 h-11 bg-gradient-to-br ${getAvatarColor(contact.name)} rounded-xl flex-shrink-0 flex items-center justify-center text-white font-bold text-sm shadow-md`}>
+                  {getInitials(contact.name)}
+                </div>
+                <div className="ml-3 flex-1 overflow-hidden">
+                  <p className="font-medium truncate text-sm text-zinc-900 dark:text-surface-200">
+                    {contact.name}
+                  </p>
+                  <p className="text-xs text-surface-500 truncate mt-0.5">
+                    {contact.email}
+                  </p>
+                </div>
+              </div>
+            ))
+          )
+        )}
       </div>
+
+        {/* Contacts Modal */}
+        {showContactsModal && (
+          <ContactsModal 
+            onClose={() => setShowContactsModal(false)} 
+            onSelectContact={handleSelectUser}
+          />
+        )}
     </div>
   );
 };

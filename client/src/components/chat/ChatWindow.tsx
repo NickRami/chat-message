@@ -3,9 +3,10 @@ import {
   Send, Smile, Paperclip, MoreVertical, Search, Phone, Video,
   FileText, Camera, Image, Headphones, MapPin, User as UserIcon,
   ArrowLeft, UserCircle, BellOff, Bell, Trash2, ShieldOff, X,
-  Mail, Info, AlertTriangle, CheckCircle
+  Mail, Info, CheckCircle, Loader2, MessageSquarePlus
 } from 'lucide-react';
 import clsx from 'clsx';
+import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 
@@ -120,7 +121,10 @@ const ProfileModal: React.FC<{
   getInitials: (n: string) => string;
   getAvatarColor: (n: string) => string;
   onClose: () => void;
-}> = ({ user, isOnline, getInitials, getAvatarColor, onClose }) => (
+  isContact: boolean;
+  onAddContact: () => void;
+  isAdding: boolean;
+}> = ({ user, isOnline, getInitials, getAvatarColor, onClose, isContact, onAddContact, isAdding }) => (
   <Modal onClose={onClose}>
     <div className="bg-white dark:bg-surface-800 rounded-3xl overflow-hidden shadow-2xl shadow-black/40 border border-zinc-200 dark:border-white/[0.06]">
       {/* Banner */}
@@ -133,7 +137,7 @@ const ProfileModal: React.FC<{
         </button>
       </div>
 
-      {/* Avatar */}
+      {/* Avatar & Content */}
       <div className="px-6 pb-6">
         <div className="relative -mt-10 mb-4">
           <div className={`w-20 h-20 bg-gradient-to-br ${getAvatarColor(user?.name || '')} rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-xl border-4 border-white dark:border-surface-800`}>
@@ -178,12 +182,31 @@ const ProfileModal: React.FC<{
           </div>
         </div>
 
-        <button
-          onClick={onClose}
-          className="mt-5 w-full py-2.5 bg-zinc-100 dark:bg-white/[0.06] hover:bg-zinc-200 dark:hover:bg-white/[0.1] text-zinc-700 dark:text-surface-200 font-medium rounded-xl text-sm transition-all duration-200"
-        >
-          Close
-        </button>
+        <div className="mt-6 flex flex-col gap-2">
+          {!isContact && (
+            <button
+              onClick={onAddContact}
+              disabled={isAdding}
+              className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl text-sm transition-all duration-200 shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2"
+            >
+              {isAdding ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <>
+                  <MessageSquarePlus size={18} />
+                  Add to contacts
+                </>
+              )}
+            </button>
+          )}
+          
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 bg-zinc-100 dark:bg-white/[0.06] hover:bg-zinc-200 dark:hover:bg-white/[0.1] text-zinc-700 dark:text-surface-200 font-medium rounded-xl text-sm transition-all duration-200"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   </Modal>
@@ -322,9 +345,48 @@ const ChatWindow: React.FC<{ socket: any }> = ({ socket }) => {
   type ActiveModal = 'profile' | 'mute' | 'unmute' | 'clear' | 'block' | null;
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [isAddingContact, setIsAddingContact] = useState(false);
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/users/contacts', {
+          headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+          withCredentials: true,
+        });
+        setContacts(res.data);
+      } catch (err) {
+        console.error('Failed to fetch contacts', err);
+      }
+    };
+    fetchContacts();
+  }, []);
 
   const activeChat = chats.find((c: any) => c._id?.toString() === chatId);
   const otherUser = activeChat?.users?.find((u: any) => (u._id?.toString() || u.toString()) !== user?.id) || activeChat?.users?.[0];
+
+  const handleAddContact = async () => {
+    if (!otherUser?._id) return;
+    setIsAddingContact(true);
+    try {
+      await axios.post('http://localhost:5000/api/users/contacts', 
+        { contactId: otherUser._id }, 
+        {
+          headers: { Authorization: `Bearer ${useAuthStore.getState().token}` },
+          withCredentials: true,
+        }
+      );
+      setContacts([...contacts, otherUser]);
+      showToast(`${otherUser.name} added to contacts`);
+    } catch (err) {
+      showToast('Failed to add contact');
+    } finally {
+      setIsAddingContact(false);
+    }
+  };
+
+  const isContact = contacts.some(c => c._id === otherUser?._id);
 
   const getInitials = (name: string) => {
     if (!name) return '?';
@@ -415,6 +477,9 @@ const ChatWindow: React.FC<{ socket: any }> = ({ socket }) => {
           getInitials={getInitials}
           getAvatarColor={getAvatarColor}
           onClose={() => setActiveModal(null)}
+          isContact={isContact}
+          onAddContact={handleAddContact}
+          isAdding={isAddingContact}
         />
       )}
 
