@@ -6,6 +6,50 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useThemeStore } from '../../store/useThemeStore';
 
+/* ── Tooltip ─────────────────────────────────────────────────── */
+const Tooltip: React.FC<{ label: string; children: React.ReactNode; position?: 'bottom' | 'top' | 'left' }> = ({
+  label, children, position = 'bottom'
+}) => (
+  <div className="relative group/tip">
+    {children}
+    <span className={clsx(
+      "pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap",
+      "px-2 py-1 rounded-lg text-[11px] font-medium",
+      "bg-surface-900 dark:bg-surface-950 text-white border border-white/10 shadow-xl",
+      "opacity-0 group-hover/tip:opacity-100 translate-y-1 group-hover/tip:translate-y-0",
+      "transition-all duration-200 z-50",
+      position === 'bottom' ? 'top-full mt-2' : position === 'top' ? 'bottom-full mb-2' : 'right-full mr-2 left-auto -translate-x-0'
+    )}>
+      {label}
+    </span>
+  </div>
+);
+
+/* ── Sidebar action icon button ─────────────────────────────── */
+const SidebarIconBtn: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  active?: boolean;
+  danger?: boolean;
+}> = ({ icon, label, onClick, active, danger }) => (
+  <Tooltip label={label} position="bottom">
+    <button
+      onClick={onClick}
+      className={clsx(
+        "p-2 rounded-xl transition-all duration-200",
+        danger
+          ? "text-zinc-400 dark:text-surface-400 hover:text-red-500 hover:bg-red-500/10"
+          : active
+          ? "text-brand-500 bg-brand-500/10"
+          : "text-zinc-500 dark:text-surface-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
+      )}
+    >
+      {icon}
+    </button>
+  </Tooltip>
+);
+
 
 const Sidebar: React.FC = () => {
   const { user, token, logout } = useAuthStore();
@@ -113,26 +157,29 @@ const Sidebar: React.FC = () => {
             <p className="text-[11px] text-zinc-500 dark:text-surface-400">Online</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={toggleTheme}
-            className="p-2 text-zinc-500 dark:text-surface-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] rounded-lg transition-all duration-200"
-            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-          <button onClick={() => { setSearchActive(!searchActive); setSearchQuery(''); setSearchResults([]); }} 
-            className="p-2 text-zinc-500 dark:text-surface-400 hover:bg-zinc-100 dark:hover:bg-white/[0.06] rounded-lg transition-all duration-200"
-            title="New Chat"
-          >
-            <MessageSquarePlus size={20} />
-          </button>
-
-          <button onClick={handleLogout}
-            className="p-2 text-zinc-500 dark:text-surface-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all duration-200"
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
+        <div className="flex items-center gap-0.5">
+          <SidebarIconBtn
+            icon={theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            onClick={toggleTheme}
+          />
+          <SidebarIconBtn
+            icon={<MessageSquarePlus size={18} className={clsx(
+              'transition-transform duration-200',
+              searchActive && 'rotate-12 text-brand-400'
+            )} />}
+            label={searchActive ? 'Cancel search' : 'New chat'}
+            onClick={() => { setSearchActive(!searchActive); setSearchQuery(''); setSearchResults([]); }}
+            active={searchActive}
+          />
+          {/* Separator */}
+          <div className="w-px h-4 bg-zinc-200 dark:bg-white/[0.08] mx-0.5" />
+          <SidebarIconBtn
+            icon={<LogOut size={18} />}
+            label="Sign out"
+            onClick={handleLogout}
+            danger
+          />
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import Sidebar from '../components/chat/Sidebar';
 import ChatWindow from '../components/chat/ChatWindow';
 import { io } from 'socket.io-client';
@@ -9,7 +9,7 @@ import { MessageCircle } from 'lucide-react';
 const ENDPOINT = 'http://localhost:5000';
 
 const Chat = () => {
-  const { selectedChat, setSelectedChat, addMessage } = useChatStore();
+  const { selectedChat, addMessage } = useChatStore();
   const { token } = useAuthStore();
   const socketRef = useRef<any>(null);
 
@@ -21,6 +21,10 @@ const Chat = () => {
 
       socketRef.current.on('message_received', (newMessageReceived: any) => {
         addMessage(newMessageReceived);
+      });
+
+      socketRef.current.on('update_online_users', (users: string[]) => {
+        useChatStore.getState().setOnlineUsers(users);
       });
     }
 

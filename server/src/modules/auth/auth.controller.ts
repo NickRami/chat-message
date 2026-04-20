@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import * as authService from './auth.service';
+import { registerUser, loginUser, refreshTokens, revokeSession, getUserById } from './auth.service';
 
 export const register = async (req: Request, res: Response) => {
   try {
     const { email, password, name } = req.body;
-    const { user, accessToken, refreshToken } = await authService.registerUser(email, password, name);
+    const { user, accessToken, refreshToken } = await registerUser(email, password, name);
     
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
@@ -22,7 +22,7 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    const { user, accessToken, refreshToken } = await authService.loginUser(email, password);
+    const { user, accessToken, refreshToken } = await loginUser(email, password);
     
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
@@ -42,7 +42,7 @@ export const refresh = async (req: Request, res: Response) => {
     const { refreshToken } = req.cookies;
     if (!refreshToken) throw new Error('Refresh token not found');
 
-    const { accessToken, newRefreshToken } = await authService.refreshTokens(refreshToken);
+    const { accessToken, newRefreshToken } = await refreshTokens(refreshToken);
 
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
@@ -61,7 +61,7 @@ export const logout = async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.cookies;
     if (refreshToken) {
-      await authService.revokeSession(refreshToken);
+      await revokeSession(refreshToken);
     }
     res.clearCookie('refreshToken');
     res.status(200).json({ message: 'Logged out successfully' });
@@ -72,7 +72,7 @@ export const logout = async (req: Request, res: Response) => {
 
 export const getMe = async (req: any, res: Response) => {
   try {
-    const user = await authService.getUserById(req.user.id);
+    const user = await getUserById(req.user.id);
     res.status(200).json({ user });
   } catch (error: any) {
     res.status(404).json({ message: 'User not found' });

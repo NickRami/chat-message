@@ -29,51 +29,60 @@ export const setupSocket = (server: HttpServer) => {
     next();
   });
 
+  const onlineUsers = new Map<string, Set<string>>(); // Map userId to Set of socketIds
+
   io.on('connection', (socket: Socket) => {
-    console.log(`New connection: ${socket.id} for user ${socket.data.user.id}`);
+    const userId = socket.data.user.id;
+    console.log(`New connection: ${socket.id} for user ${userId}`);
     
+    // Track online user
+    if (!onlineUsers.has(userId)) {
+      onlineUsers.set(userId, new Set());
+    }
+    onlineUsers.get(userId)?.add(socket.id);
+    
+    // Broadcast updated online users list
+    io.emit('update_online_users', Array.from(onlineUsers.keys()));
+
     // Each user joins their own private room
-    socket.join(socket.data.user.id);
-    console.log(`User ${socket.data.user.id} joined their private room.`);
+    socket.join(userId);
+    console.log(`User ${userId} joined their private room.`);
 
 
     socket.on('join_chat', (chatId: string) => {
       socket.join(chatId);
-      console.log(`User ${socket.data.user.id} joined chat ${chatId}`);
+      console.log(`User ${userId} joined chat ${chatId}`);
     });
 
     socket.on('new_message', (newMessage: any) => {
-      const chat = newMessage.chatId;
-      if (!chat || !chat.users) {
-        console.log('Error: chat or chat.users not defined in new_message');
-        return;
-      }
+      const chatId = newMessage.chatId?._id || newMessage.chatId;
+      if (!chatId) return;
 
-      const senderIdStr = newMessage.senderId?._id?.toString() || newMessage.senderId?.toString();
-
-      chat.users.forEach((user: any) => {
-        const userIdStr = user._id?.toString() || user.toString();
-        
-        // Skip sender
-        if (userIdStr === senderIdStr) return;
-        
-        // Emit to the user's private room
-        console.log(`Emitting message_received to user room: ${userIdStr}`);
-        io.to(userIdStr).emit('message_received', newMessage);
-      });
+      // Broadcast to all users in the chat room EXCEPT the sender
+      socket.to(chatId.toString()).emit('message_received', newMessage);
+      
+      console.log(`Message from ${userId} broadcasted to room ${chatId}`);
     });
 
 
 
     socket.on('typing', (data: { chatId: string, isTyping: boolean }) => {
       socket.to(data.chatId).emit('user_typing', {
-        userId: socket.data.user.id,
+        userId: userId,
         isTyping: data.isTyping
       });
     });
 
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.data.user.id}`);
+      console.log(`User disconnected: ${userId}`);
+      const sockets = onlineUsers.get(userId);
+      if (sockets) {
+        sockets.delete(socket.id);
+        if (sockets.size === 0) {
+          onlineUsers.delete(userId);
+        }
+      }
+      io.emit('update_online_users', Array.from(onlineUsers.keys()));
     });
   });
 };
